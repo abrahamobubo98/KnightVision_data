@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KnightVision v4 — COCO Dataset Visualizer (Cryptomatte)</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #1C2128;
+  color: #C9D1D9;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+}
+
+/* Sidebar */
+#sidebar {
+  width: 280px;
+  min-width: 280px;
+  background: #22272E;
+  border-right: 1px solid #30363D;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 16px;
+  gap: 16px;
+}
+#sidebar h1 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #7E57C2;
+  letter-spacing: 0.5px;
+}
+.sidebar-section {
+  background: #2D333B;
+  border-radius: 6px;
+  padding: 12px;
+}
+.sidebar-section h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #8B949E;
+  margin-bottom: 10px;
+}
+
+/* Navigation */
+.nav-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nav-row button {
+  background: #7E57C2;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+.nav-row button:hover { background: #6C4AAF; }
+.nav-label {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  color: #C9D1D9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.image-name {
+  font-size: 11px;
+  color: #8B949E;
+  margin-top: 6px;
+  text-align: center;
+  word-break: break-all;
+}
+.config-info {
+  font-size: 11px;
+  color: #8B949E;
+  margin-top: 4px;
+  text-align: center;
+}
+.config-info .config-style {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 4px;
+}
+.style-crowded   { background: #7E57C2; color: #fff; }
+.style-sparse    { background: #2E7D32; color: #fff; }
+.style-clear     { background: #0288D1; color: #fff; }
+.style-occlusion { background: #E65100; color: #fff; }
+
+/* Toggles */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.toggle-row:last-child { margin-bottom: 0; }
+.toggle-row label {
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  flex: 1;
+}
+.toggle-row input[type="checkbox"] {
+  accent-color: #7E57C2;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+/* Opacity slider */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.slider-row input[type="range"] {
+  flex: 1;
+  accent-color: #7E57C2;
+  height: 4px;
+}
+.slider-val {
+  font-size: 12px;
+  color: #8B949E;
+  min-width: 32px;
+  text-align: right;
+}
+
+/* Category filter */
+.cat-controls {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.cat-controls button {
+  background: #363D47;
+  color: #C9D1D9;
+  border: 1px solid #444C56;
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.cat-controls button:hover { background: #444C56; }
+.cat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.cat-item:last-child { margin-bottom: 0; }
+.cat-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cat-item label {
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.cat-item input[type="checkbox"] {
+  accent-color: #7E57C2;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+/* Stats */
+.stats {
+  font-size: 11px;
+  color: #8B949E;
+  line-height: 1.6;
+}
+
+/* Main area */
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+#canvas-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+#display-canvas {
+  cursor: crosshair;
+}
+#display-canvas.panning {
+  cursor: grabbing;
+}
+#display-canvas.zoomed {
+  cursor: grab;
+}
+#display-canvas.zoomed.panning {
+  cursor: grabbing;
+}
+
+/* Zoom indicator */
+#zoom-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(34, 39, 46, 0.85);
+  border: 1px solid #30363D;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #8B949E;
+  display: none;
+  backdrop-filter: blur(8px);
+  user-select: none;
+}
+#zoom-indicator.visible { display: flex; align-items: center; gap: 8px; }
+#zoom-indicator button {
+  background: #363D47;
+  color: #C9D1D9;
+  border: 1px solid #444C56;
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+#zoom-indicator button:hover { background: #444C56; }
+
+/* Detail panel */
+#detail-panel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(34, 39, 46, 0.95);
+  border-top: 1px solid #30363D;
+  padding: 10px 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  display: none;
+  backdrop-filter: blur(8px);
+}
+#detail-panel.visible { display: block; }
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 4px 24px;
+}
+.detail-key {
+  color: #8B949E;
+  display: inline;
+}
+.detail-val {
+  color: #C9D1D9;
+  font-weight: 500;
+  display: inline;
+}
+.detail-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #7E57C2;
+  margin-bottom: 4px;
+}
+
+/* Loading */
+#loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #8B949E;
+  font-size: 14px;
+}
+
+/* Line detection */
+#btn-detect-lines {
+  background: #7E57C2;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  width: 100%;
+  margin-bottom: 6px;
+}
+#btn-detect-lines:hover { background: #6C4AAF; }
+#btn-detect-lines:disabled { background: #444C56; color: #8B949E; cursor: wait; }
+#btn-clear-lines {
+  background: #363D47;
+  color: #C9D1D9;
+  border: 1px solid #444C56;
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+#btn-clear-lines:hover { background: #444C56; }
+.ld-slider-label {
+  font-size: 11px;
+  color: #8B949E;
+  min-width: 70px;
+}
+.ld-stats {
+  font-size: 11px;
+  color: #8B949E;
+  line-height: 1.6;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #444C56;
+}
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h1>KNIGHTVISION v4</h1>
+
+  <!-- Navigation -->
+  <div class="sidebar-section">
+    <h3>Image Navigation</h3>
+    <div class="nav-row">
+      <button id="btn-prev">&larr; Prev</button>
+      <span class="nav-label" id="nav-label">1 / ?</span>
+      <button id="btn-next">Next &rarr;</button>
+    </div>
+    <div class="image-name" id="image-name"></div>
+    <div class="config-info" id="config-info"></div>
+  </div>
+
+  <!-- Display toggles -->
+  <div class="sidebar-section">
+    <h3>Display Options</h3>
+    <div class="toggle-row">
+      <input type="checkbox" id="tog-masks" checked>
+      <label for="tog-masks">Segmentation masks</label>
+    </div>
+    <div class="toggle-row">
+      <input type="checkbox" id="tog-bboxes" checked>
+      <label for="tog-bboxes">Bounding boxes</label>
+    </div>
+    <div class="toggle-row">
+      <input type="checkbox" id="tog-labels" checked>
+      <label for="tog-labels">Labels</label>
+    </div>
+    <div class="toggle-row">
+      <input type="checkbox" id="tog-keypoints">
+      <label for="tog-keypoints">Keypoints</label>
+    </div>
+    <div class="slider-row">
+      <label for="opacity-slider" style="font-size:12px;color:#8B949E;">Mask opacity</label>
+      <input type="range" id="opacity-slider" min="0" max="100" value="35">
+      <span class="slider-val" id="opacity-val">35%</span>
+    </div>
+  </div>
+
+  <!-- Category filter -->
+  <div class="sidebar-section">
+    <h3>Categories</h3>
+    <div class="cat-controls">
+      <button id="cat-all">Select All</button>
+      <button id="cat-none">None</button>
+    </div>
+    <div id="cat-list"></div>
+  </div>
+
+  <!-- Line Detection -->
+  <div class="sidebar-section">
+    <h3>Line Detection</h3>
+    <button id="btn-detect-lines">Detect Lines</button>
+    <button id="btn-clear-lines">Clear</button>
+    <div class="toggle-row">
+      <input type="checkbox" id="tog-edges">
+      <label for="tog-edges">Edge map overlay</label>
+    </div>
+    <div class="toggle-row">
+      <input type="checkbox" id="tog-lines" checked>
+      <label for="tog-lines">Detected lines</label>
+    </div>
+    <div class="toggle-row">
+      <input type="checkbox" id="tog-intersections" checked>
+      <label for="tog-intersections">Intersections</label>
+    </div>
+    <div class="slider-row" style="margin-top:6px;">
+      <span class="ld-slider-label">Canny low</span>
+      <input type="range" id="canny-low" min="10" max="200" value="90">
+      <span class="slider-val" id="canny-low-val">90</span>
+    </div>
+    <div class="slider-row">
+      <span class="ld-slider-label">Canny high</span>
+      <input type="range" id="canny-high" min="100" max="600" value="400">
+      <span class="slider-val" id="canny-high-val">400</span>
+    </div>
+    <div class="slider-row">
+      <span class="ld-slider-label">Hough thresh</span>
+      <input type="range" id="hough-thresh" min="30" max="300" value="100">
+      <span class="slider-val" id="hough-thresh-val">100</span>
+    </div>
+    <div class="ld-stats" id="ld-stats"></div>
+  </div>
+
+  <!-- Stats -->
+  <div class="sidebar-section">
+    <h3>Dataset Info</h3>
+    <div class="stats" id="stats"></div>
+  </div>
+</div>
+
+<div id="main">
+  <div id="canvas-wrap">
+    <canvas id="display-canvas"></canvas>
+    <div id="zoom-indicator">
+      <span id="zoom-level">100%</span>
+      <button id="btn-reset-zoom">Reset</button>
+    </div>
+    <div id="loading">Loading annotations...</div>
+  </div>
+  <div id="detail-panel">
+    <div class="detail-title" id="detail-title"></div>
+    <div class="detail-grid" id="detail-grid"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // -- Category colors --
+  const CAT_COLORS = {
+    1:  '#87CEEB', // chessboard - sky blue
+    2:  '#FFD700', // white_king - gold
+    3:  '#FF8C00', // white_queen - orange
+    4:  '#FF6347', // white_rook - tomato
+    5:  '#FFB6C1', // white_bishop - pink
+    6:  '#FFEB3B', // white_knight - yellow
+    7:  '#FFA726', // white_pawn - amber
+    8:  '#4CAF50', // black_king - green
+    9:  '#009688', // black_queen - teal
+    10: '#6A5ACD', // black_bishop - slate blue
+    11: '#9C27B0', // black_rook - purple
+    12: '#40E0D0', // black_knight - turquoise
+    13: '#2E7D32', // black_pawn - dark green
+  };
+
+  // -- State --
+  const state = {
+    data: null,
+    images: [],
+    annsByImage: {},
+    catMap: {},
+    currentIdx: 0,
+    showMasks: true,
+    showBboxes: true,
+    showLabels: true,
+    showKeypoints: false,
+    maskOpacity: 0.35,
+    enabledCats: new Set(),
+    hoveredAnn: null,
+    selectedAnn: null,
+    imageCache: {},
+    currentImg: null,
+    zoom: 1,
+    panX: 0,
+    panY: 0,
+    isPanning: false,
+    panStartX: 0,
+    panStartY: 0,
+    panStartPanX: 0,
+    panStartPanY: 0,
+    lineDetection: null,
+    showEdges: false,
+    showDetectedLines: true,
+    showIntersections: true,
+    cannyLow: 90,
+    cannyHigh: 400,
+    houghThreshold: 100,
+  };
+
+  // -- DOM refs --
+  const canvas = document.getElementById('display-canvas');
+  const ctx = canvas.getContext('2d');
+  const hitCanvas = document.createElement('canvas');
+  const hitCtx = hitCanvas.getContext('2d', { willReadFrequently: true });
+  const loadingEl = document.getElementById('loading');
+
+  // -- Hex helpers --
+  function hexToRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+
+  // -- Hit-test color encode/decode --
+  let hitColorMap = {};
+  function annIdToColor(id) {
+    const r = (id >> 16) & 0xFF;
+    const g = (id >> 8) & 0xFF;
+    const b = id & 0xFF;
+    return `rgb(${r},${g},${b})`;
+  }
+  function colorToAnnId(r, g, b) {
+    return (r << 16) | (g << 8) | b;
+  }
+
+  // -- Scale/offset for fitting image in canvas --
+  let scaleX = 1, scaleY = 1, offsetX = 0, offsetY = 0, drawW = 0, drawH = 0;
+
+  function computeTransform(imgW, imgH, canW, canH) {
+    const baseScale = Math.min(canW / imgW, canH / imgH);
+    const scale = baseScale * state.zoom;
+    drawW = imgW * scale;
+    drawH = imgH * scale;
+    offsetX = (canW - drawW) / 2 + state.panX;
+    offsetY = (canH - drawH) / 2 + state.panY;
+    scaleX = scale;
+    scaleY = scale;
+  }
+
+  // -- Canvas sizing --
+  function resizeCanvas() {
+    const wrap = document.getElementById('canvas-wrap');
+    const dpr = window.devicePixelRatio || 1;
+    const w = wrap.clientWidth;
+    const h = wrap.clientHeight;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    hitCanvas.width = w;
+    hitCanvas.height = h;
+    render();
+  }
+
+  // -- Image preloading --
+  function loadImage(idx) {
+    if (state.imageCache[idx]) return Promise.resolve(state.imageCache[idx]);
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => { state.imageCache[idx] = img; resolve(img); };
+      img.onerror = reject;
+      img.src = state.images[idx].file_name;
+    });
+  }
+
+  function preloadNeighbors(idx) {
+    const n = state.images.length;
+    const prev = (idx - 1 + n) % n;
+    const next = (idx + 1) % n;
+    loadImage(prev);
+    loadImage(next);
+  }
+
+  // -- Navigate --
+  async function goToImage(idx) {
+    const n = state.images.length;
+    state.currentIdx = ((idx % n) + n) % n;
+    state.hoveredAnn = null;
+    state.selectedAnn = null;
+    state.zoom = 1;
+    state.panX = 0;
+    state.panY = 0;
+    state.lineDetection = null;
+    updateZoomUI();
+    hideDetail();
+    var ldStats = document.getElementById('ld-stats');
+    if (ldStats) ldStats.textContent = '';
+    updateNavUI();
+    try {
+      state.currentImg = await loadImage(state.currentIdx);
+    } catch(e) {
+      state.currentImg = null;
+    }
+    render();
+    preloadNeighbors(state.currentIdx);
+  }
+
+  function updateNavUI() {
+    const img = state.images[state.currentIdx];
+    document.getElementById('nav-label').textContent =
+      `${state.currentIdx + 1} / ${state.images.length}`;
+    document.getElementById('image-name').textContent = img.file_name.replace('images/', '');
+
+    // Config info
+    const configEl = document.getElementById('config-info');
+    const configName = img.config_name || '';
+    const configStyle = img.config_style || '';
+    if (configName) {
+      const styleClass = 'style-' + configStyle;
+      configEl.innerHTML = `${configName} <span class="config-style ${styleClass}">${configStyle}</span>`;
+    } else {
+      configEl.textContent = '';
+    }
+  }
+
+  // -- Drawing helpers --
+  function drawPolygon(context, seg, fill, stroke, lineWidth) {
+    if (!seg || seg.length < 6) return;
+    context.beginPath();
+    context.moveTo(offsetX + seg[0] * scaleX, offsetY + seg[1] * scaleY);
+    for (let i = 2; i < seg.length; i += 2) {
+      context.lineTo(offsetX + seg[i] * scaleX, offsetY + seg[i + 1] * scaleY);
+    }
+    context.closePath();
+    if (fill) { context.fillStyle = fill; context.fill(); }
+    if (stroke) { context.strokeStyle = stroke; context.lineWidth = lineWidth || 1; context.stroke(); }
+  }
+
+  function drawBbox(context, bbox, color, lineWidth) {
+    const [x, y, w, h] = bbox;
+    context.strokeStyle = color;
+    context.lineWidth = lineWidth || 1.5;
+    context.setLineDash([4, 3]);
+    context.strokeRect(
+      offsetX + x * scaleX,
+      offsetY + y * scaleY,
+      w * scaleX,
+      h * scaleY
+    );
+    context.setLineDash([]);
+  }
+
+  function drawLabel(context, text, x, y, color) {
+    context.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+    const metrics = context.measureText(text);
+    const pad = 3;
+    const lx = offsetX + x * scaleX;
+    const ly = offsetY + y * scaleY - 4;
+    context.fillStyle = 'rgba(0,0,0,0.7)';
+    context.fillRect(lx - 1, ly - 11 - pad, metrics.width + pad * 2 + 2, 14 + pad);
+    context.fillStyle = color;
+    context.fillText(text, lx + pad, ly - 2);
+  }
+
+  function drawKeypoints(context, ann, cat) {
+    if (!ann.keypoints || !cat.keypoints) return;
+    const kps = [];
+    for (let i = 0; i < ann.keypoints.length; i += 3) {
+      kps.push({ x: ann.keypoints[i], y: ann.keypoints[i + 1], v: ann.keypoints[i + 2] });
+    }
+    const color = CAT_COLORS[ann.category_id] || '#fff';
+
+    // Draw skeleton lines
+    if (cat.skeleton) {
+      context.strokeStyle = hexToRgba(color, 0.7);
+      context.lineWidth = 2;
+      for (const [a, b] of cat.skeleton) {
+        if (kps[a] && kps[b] && kps[a].v > 0 && kps[b].v > 0) {
+          context.beginPath();
+          context.moveTo(offsetX + kps[a].x * scaleX, offsetY + kps[a].y * scaleY);
+          context.lineTo(offsetX + kps[b].x * scaleX, offsetY + kps[b].y * scaleY);
+          context.stroke();
+        }
+      }
+    }
+
+    // Draw keypoint circles
+    for (let i = 0; i < kps.length; i++) {
+      const kp = kps[i];
+      if (kp.v === 0) continue;
+      const cx = offsetX + kp.x * scaleX;
+      const cy = offsetY + kp.y * scaleY;
+      const radius = 5;
+      context.beginPath();
+      context.arc(cx, cy, radius, 0, Math.PI * 2);
+      context.fillStyle = kp.v === 2 ? color : hexToRgba(color, 0.5);
+      context.fill();
+      context.strokeStyle = '#fff';
+      context.lineWidth = 1.5;
+      context.stroke();
+
+      // Label
+      if (cat.keypoints[i]) {
+        context.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+        context.fillStyle = '#fff';
+        context.fillText(cat.keypoints[i], cx + 7, cy + 3);
+      }
+    }
+  }
+
+  // -- Line Detection Algorithms --
+
+  function getGrayscaleFromImage(img, maxWidth) {
+    var w = img.naturalWidth || img.width;
+    var h = img.naturalHeight || img.height;
+    var scale = w > maxWidth ? maxWidth / w : 1;
+    w = Math.round(w * scale);
+    h = Math.round(h * scale);
+    var offCanvas = document.createElement('canvas');
+    offCanvas.width = w;
+    offCanvas.height = h;
+    var offCtx = offCanvas.getContext('2d');
+    offCtx.drawImage(img, 0, 0, w, h);
+    var imageData = offCtx.getImageData(0, 0, w, h);
+    var d = imageData.data;
+    var gray = new Float64Array(w * h);
+    for (var i = 0; i < w * h; i++) {
+      var idx = i * 4;
+      gray[i] = 0.299 * d[idx] + 0.587 * d[idx + 1] + 0.114 * d[idx + 2];
+    }
+    return { gray: gray, w: w, h: h, scale: scale };
+  }
+
+  function gaussianBlur5x5(gray, w, h) {
+    // Separable 5x5 Gaussian, sigma ~1.4
+    var k = [2/17, 4/17, 5/17, 4/17, 2/17];
+    var temp = new Float64Array(w * h);
+    var out = new Float64Array(w * h);
+    // Horizontal pass
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var sum = 0;
+        for (var i = -2; i <= 2; i++) {
+          var xi = Math.min(w - 1, Math.max(0, x + i));
+          sum += gray[y * w + xi] * k[i + 2];
+        }
+        temp[y * w + x] = sum;
+      }
+    }
+    // Vertical pass
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var sum = 0;
+        for (var i = -2; i <= 2; i++) {
+          var yi = Math.min(h - 1, Math.max(0, y + i));
+          sum += temp[yi * w + x] * k[i + 2];
+        }
+        out[y * w + x] = sum;
+      }
+    }
+    return out;
+  }
+
+  function sobelGradients(blurred, w, h) {
+    var mag = new Float64Array(w * h);
+    var dir = new Float64Array(w * h);
+    for (var y = 1; y < h - 1; y++) {
+      for (var x = 1; x < w - 1; x++) {
+        var tl = blurred[(y-1)*w + (x-1)];
+        var tc = blurred[(y-1)*w + x];
+        var tr = blurred[(y-1)*w + (x+1)];
+        var ml = blurred[y*w + (x-1)];
+        var mr = blurred[y*w + (x+1)];
+        var bl = blurred[(y+1)*w + (x-1)];
+        var bc = blurred[(y+1)*w + x];
+        var br = blurred[(y+1)*w + (x+1)];
+        var gx = -tl + tr - 2*ml + 2*mr - bl + br;
+        var gy = -tl - 2*tc - tr + bl + 2*bc + br;
+        mag[y*w + x] = Math.sqrt(gx * gx + gy * gy);
+        dir[y*w + x] = Math.atan2(gy, gx);
+      }
+    }
+    return { mag: mag, dir: dir };
+  }
+
+  function nonMaxSuppression(mag, dir, w, h) {
+    var out = new Float64Array(w * h);
+    for (var y = 1; y < h - 1; y++) {
+      for (var x = 1; x < w - 1; x++) {
+        var idx = y * w + x;
+        var angle = dir[idx] * (180 / Math.PI);
+        if (angle < 0) angle += 180;
+        var n1, n2;
+        if (angle < 22.5 || angle >= 157.5) {
+          n1 = mag[y * w + (x - 1)];
+          n2 = mag[y * w + (x + 1)];
+        } else if (angle < 67.5) {
+          n1 = mag[(y - 1) * w + (x + 1)];
+          n2 = mag[(y + 1) * w + (x - 1)];
+        } else if (angle < 112.5) {
+          n1 = mag[(y - 1) * w + x];
+          n2 = mag[(y + 1) * w + x];
+        } else {
+          n1 = mag[(y - 1) * w + (x - 1)];
+          n2 = mag[(y + 1) * w + (x + 1)];
+        }
+        out[idx] = (mag[idx] >= n1 && mag[idx] >= n2) ? mag[idx] : 0;
+      }
+    }
+    return out;
+  }
+
+  function hysteresis(nms, w, h, low, high) {
+    var edges = new Uint8Array(w * h);
+    var STRONG = 255, WEAK = 128;
+    for (var i = 0; i < w * h; i++) {
+      if (nms[i] >= high) edges[i] = STRONG;
+      else if (nms[i] >= low) edges[i] = WEAK;
+    }
+    // BFS from strong edges
+    var queue = [];
+    for (var i = 0; i < w * h; i++) {
+      if (edges[i] === STRONG) queue.push(i);
+    }
+    var head = 0;
+    while (head < queue.length) {
+      var idx = queue[head++];
+      var x = idx % w;
+      var y = (idx - x) / w;
+      for (var dy = -1; dy <= 1; dy++) {
+        for (var dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          var nx = x + dx, ny = y + dy;
+          if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+          var ni = ny * w + nx;
+          if (edges[ni] === WEAK) {
+            edges[ni] = STRONG;
+            queue.push(ni);
+          }
+        }
+      }
+    }
+    // Remove remaining weak edges
+    for (var i = 0; i < w * h; i++) {
+      if (edges[i] !== STRONG) edges[i] = 0;
+    }
+    return edges;
+  }
+
+  function cannyEdgeDetection(img, maxWidth, low, high) {
+    var result = getGrayscaleFromImage(img, maxWidth);
+    var blurred = gaussianBlur5x5(result.gray, result.w, result.h);
+    var grads = sobelGradients(blurred, result.w, result.h);
+    var nms = nonMaxSuppression(grads.mag, grads.dir, result.w, result.h);
+    var edges = hysteresis(nms, result.w, result.h, low, high);
+    return { edges: edges, w: result.w, h: result.h, scale: result.scale };
+  }
+
+  function houghLines(edges, w, h, threshold) {
+    var DEG_RES = 0.5;
+    var numThetas = Math.round(180 / DEG_RES);
+    var diag = Math.sqrt(w * w + h * h);
+    var maxRho = Math.ceil(diag);
+    var rhoOffset = maxRho;
+    var accW = 2 * maxRho + 1;
+    var acc = new Int32Array(accW * numThetas);
+
+    // Precompute cos/sin tables
+    var cosTable = new Float64Array(numThetas);
+    var sinTable = new Float64Array(numThetas);
+    for (var t = 0; t < numThetas; t++) {
+      var theta = (t * DEG_RES) * (Math.PI / 180);
+      cosTable[t] = Math.cos(theta);
+      sinTable[t] = Math.sin(theta);
+    }
+
+    // Vote
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        if (edges[y * w + x] === 0) continue;
+        for (var t = 0; t < numThetas; t++) {
+          var rho = Math.round(x * cosTable[t] + y * sinTable[t]);
+          var rhoIdx = rho + rhoOffset;
+          acc[rhoIdx * numThetas + t]++;
+        }
+      }
+    }
+
+    // Peak detection with local maximum
+    var lines = [];
+    var nbrRho = 4, nbrTheta = 4;
+    for (var ri = 0; ri < accW; ri++) {
+      for (var ti = 0; ti < numThetas; ti++) {
+        var val = acc[ri * numThetas + ti];
+        if (val < threshold) continue;
+        var isMax = true;
+        for (var dr = -nbrRho; dr <= nbrRho && isMax; dr++) {
+          for (var dt = -nbrTheta; dt <= nbrTheta && isMax; dt++) {
+            if (dr === 0 && dt === 0) continue;
+            var nri = ri + dr;
+            var nti = ((ti + dt) % numThetas + numThetas) % numThetas;
+            if (nri < 0 || nri >= accW) continue;
+            if (acc[nri * numThetas + nti] > val) isMax = false;
+          }
+        }
+        if (isMax) {
+          lines.push({
+            rho: ri - rhoOffset,
+            theta: (ti * DEG_RES) * (Math.PI / 180)
+          });
+        }
+      }
+    }
+    return lines;
+  }
+
+  function clusterLinesByAngle(lines) {
+    if (lines.length === 0) return [[], []];
+    if (lines.length === 1) return [[lines[0]], []];
+
+    var sorted = lines.slice().sort(function(a, b) { return a.theta - b.theta; });
+
+    // Find largest angular gap
+    var maxGap = 0, gapIdx = 0;
+    for (var i = 0; i < sorted.length - 1; i++) {
+      var gap = sorted[i + 1].theta - sorted[i].theta;
+      if (gap > maxGap) { maxGap = gap; gapIdx = i + 1; }
+    }
+    // Check wrap-around gap
+    var wrapGap = (Math.PI - sorted[sorted.length - 1].theta) + sorted[0].theta;
+    if (wrapGap > maxGap) {
+      gapIdx = 0;
+    }
+
+    if (gapIdx === 0) return [sorted, []];
+
+    return [sorted.slice(0, gapIdx), sorted.slice(gapIdx)];
+  }
+
+  function eliminateSimilarLines(lines) {
+    if (lines.length <= 1) return lines;
+    var sorted = lines.slice().sort(function(a, b) { return a.rho - b.rho; });
+    var eps = 12;
+    var groups = [];
+    var currentGroup = [sorted[0]];
+    for (var i = 1; i < sorted.length; i++) {
+      if (sorted[i].rho - currentGroup[currentGroup.length - 1].rho <= eps) {
+        currentGroup.push(sorted[i]);
+      } else {
+        groups.push(currentGroup);
+        currentGroup = [sorted[i]];
+      }
+    }
+    groups.push(currentGroup);
+    return groups.map(function(g) {
+      return g[Math.floor(g.length / 2)];
+    });
+  }
+
+  function getIntersectionPoint(rho1, t1, rho2, t2) {
+    var det = Math.cos(t1) * Math.sin(t2) - Math.sin(t1) * Math.cos(t2);
+    if (Math.abs(det) < 1e-10) return null;
+    var x = (rho1 * Math.sin(t2) - rho2 * Math.sin(t1)) / det;
+    var y = (rho2 * Math.cos(t1) - rho1 * Math.cos(t2)) / det;
+    return { x: x, y: y };
+  }
+
+  function getAllIntersections(c1, c2, imgW, imgH) {
+    var margin = 0.1;
+    var minX = -imgW * margin, maxX = imgW * (1 + margin);
+    var minY = -imgH * margin, maxY = imgH * (1 + margin);
+    var pts = [];
+    for (var i = 0; i < c1.length; i++) {
+      for (var j = 0; j < c2.length; j++) {
+        var pt = getIntersectionPoint(c1[i].rho, c1[i].theta, c2[j].rho, c2[j].theta);
+        if (pt && pt.x >= minX && pt.x <= maxX && pt.y >= minY && pt.y <= maxY) {
+          pts.push(pt);
+        }
+      }
+    }
+    return pts;
+  }
+
+  // -- Run line detection pipeline --
+  function runLineDetection() {
+    if (!state.currentImg) return;
+    var btn = document.getElementById('btn-detect-lines');
+    var statsEl = document.getElementById('ld-stats');
+    btn.disabled = true;
+    btn.textContent = 'Processing...';
+    statsEl.textContent = '';
+
+    // Defer heavy work so the UI updates first
+    requestAnimationFrame(function() {
+      setTimeout(function() {
+        var t0 = performance.now();
+        var img = state.currentImg;
+        var imgInfo = state.images[state.currentIdx];
+
+        // 1. Canny edge detection at capped width
+        var canny = cannyEdgeDetection(img, 1200, state.cannyLow, state.cannyHigh);
+        var procW = canny.w, procH = canny.h, procScale = canny.scale;
+
+        // 2. Create green edge overlay canvas
+        var edgeCanvas = document.createElement('canvas');
+        edgeCanvas.width = procW;
+        edgeCanvas.height = procH;
+        var edgeCtx2 = edgeCanvas.getContext('2d');
+        var edgeImgData = edgeCtx2.createImageData(procW, procH);
+        var edgePixels = edgeImgData.data;
+        for (var i = 0; i < procW * procH; i++) {
+          if (canny.edges[i] === 255) {
+            edgePixels[i * 4] = 0;
+            edgePixels[i * 4 + 1] = 255;
+            edgePixels[i * 4 + 2] = 0;
+            edgePixels[i * 4 + 3] = 200;
+          }
+        }
+        edgeCtx2.putImageData(edgeImgData, 0, 0);
+
+        // 3. Hough line detection
+        var rawLines = houghLines(canny.edges, procW, procH, state.houghThreshold);
+
+        // 4. Cluster by angle
+        var clusters = clusterLinesByAngle(rawLines);
+        var cluster1 = eliminateSimilarLines(clusters[0]);
+        var cluster2 = eliminateSimilarLines(clusters[1]);
+
+        // 5. Scale rho back to original image coordinates
+        for (var i = 0; i < cluster1.length; i++) {
+          cluster1[i] = { rho: cluster1[i].rho / procScale, theta: cluster1[i].theta };
+        }
+        for (var i = 0; i < cluster2.length; i++) {
+          cluster2[i] = { rho: cluster2[i].rho / procScale, theta: cluster2[i].theta };
+        }
+
+        // 6. Compute intersections in original image coords
+        var intersections = getAllIntersections(cluster1, cluster2, imgInfo.width, imgInfo.height);
+
+        var elapsed = (performance.now() - t0).toFixed(0);
+
+        // 7. Store results
+        state.lineDetection = {
+          edgeCanvas: edgeCanvas,
+          cluster1: cluster1,
+          cluster2: cluster2,
+          intersections: intersections
+        };
+
+        // Update UI
+        btn.disabled = false;
+        btn.textContent = 'Detect Lines';
+        statsEl.innerHTML =
+          'Cluster 1: ' + cluster1.length + ' lines<br>' +
+          'Cluster 2: ' + cluster2.length + ' lines<br>' +
+          'Intersections: ' + intersections.length + '<br>' +
+          'Raw Hough lines: ' + rawLines.length + '<br>' +
+          'Time: ' + elapsed + 'ms';
+
+        render();
+      }, 16);
+    });
+  }
+
+  // -- Main render --
+  function render() {
+    const w = canvas.style.width ? parseInt(canvas.style.width) : canvas.width;
+    const h = canvas.style.height ? parseInt(canvas.style.height) : canvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+    hitCtx.clearRect(0, 0, hitCanvas.width, hitCanvas.height);
+    hitColorMap = {};
+
+    if (!state.currentImg || !state.data) return;
+
+    const imgData = state.images[state.currentIdx];
+    computeTransform(imgData.width, imgData.height, w, h);
+
+    // Draw image
+    ctx.drawImage(state.currentImg, offsetX, offsetY, drawW, drawH);
+
+    // Get annotations for current image
+    const anns = (state.annsByImage[imgData.id] || [])
+      .filter(a => state.enabledCats.has(a.category_id));
+
+    // Draw masks
+    if (state.showMasks) {
+      for (const ann of anns) {
+        const color = CAT_COLORS[ann.category_id] || '#888';
+        for (const seg of ann.segmentation) {
+          drawPolygon(ctx, seg, hexToRgba(color, state.maskOpacity), null);
+        }
+      }
+    }
+
+    // Draw bboxes
+    if (state.showBboxes) {
+      for (const ann of anns) {
+        const color = CAT_COLORS[ann.category_id] || '#888';
+        drawBbox(ctx, ann.bbox, hexToRgba(color, 0.8), 1.5);
+      }
+    }
+
+    // Draw keypoints
+    if (state.showKeypoints) {
+      for (const ann of anns) {
+        if (ann.keypoints) {
+          const cat = state.catMap[ann.category_id];
+          drawKeypoints(ctx, ann, cat);
+        }
+      }
+    }
+
+    // Draw labels
+    if (state.showLabels) {
+      for (const ann of anns) {
+        const cat = state.catMap[ann.category_id];
+        const color = CAT_COLORS[ann.category_id] || '#888';
+        drawLabel(ctx, cat.name, ann.bbox[0], ann.bbox[1], color);
+      }
+    }
+
+    // Highlight hovered/selected
+    const highlightAnn = state.selectedAnn || state.hoveredAnn;
+    if (highlightAnn && state.enabledCats.has(highlightAnn.category_id)) {
+      for (const seg of highlightAnn.segmentation) {
+        drawPolygon(ctx, seg, null, '#FFFFFF', 2.5);
+      }
+      const [bx, by, bw, bh] = highlightAnn.bbox;
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(
+        offsetX + bx * scaleX,
+        offsetY + by * scaleY,
+        bw * scaleX,
+        bh * scaleY
+      );
+    }
+
+    // Build hit-test canvas
+    for (const ann of anns) {
+      const c = annIdToColor(ann.id);
+      hitColorMap[ann.id] = true;
+      for (const seg of ann.segmentation) {
+        drawPolygon(hitCtx, seg, c, null);
+      }
+    }
+
+    // -- Line detection overlay --
+    if (state.lineDetection) {
+      const ld = state.lineDetection;
+      const imgW = imgData.width;
+      const imgH = imgData.height;
+
+      // Edge overlay
+      if (state.showEdges && ld.edgeCanvas) {
+        ctx.globalAlpha = 0.5;
+        ctx.drawImage(ld.edgeCanvas, offsetX, offsetY, drawW, drawH);
+        ctx.globalAlpha = 1.0;
+      }
+
+      // Detected lines
+      if (state.showDetectedLines) {
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.7;
+        const drawCluster = (cluster, color) => {
+          ctx.strokeStyle = color;
+          for (const line of cluster) {
+            const cosT = Math.cos(line.theta);
+            const sinT = Math.sin(line.theta);
+            const x0 = line.rho * cosT;
+            const y0 = line.rho * sinT;
+            const len = Math.max(imgW, imgH) * 2;
+            const x1 = x0 + len * (-sinT);
+            const y1 = y0 + len * cosT;
+            const x2 = x0 - len * (-sinT);
+            const y2 = y0 - len * cosT;
+            ctx.beginPath();
+            ctx.moveTo(offsetX + x1 * scaleX, offsetY + y1 * scaleY);
+            ctx.lineTo(offsetX + x2 * scaleX, offsetY + y2 * scaleY);
+            ctx.stroke();
+          }
+        };
+        drawCluster(ld.cluster1, '#00FFFF');
+        drawCluster(ld.cluster2, '#FF00FF');
+        ctx.globalAlpha = 1.0;
+      }
+
+      // Intersections
+      if (state.showIntersections && ld.intersections) {
+        for (const pt of ld.intersections) {
+          const cx = offsetX + pt.x * scaleX;
+          const cy = offsetY + pt.y * scaleY;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // -- Hit testing --
+  function hitTest(mx, my) {
+    const pixel = hitCtx.getImageData(mx, my, 1, 1).data;
+    if (pixel[3] < 128) return null;
+    const id = colorToAnnId(pixel[0], pixel[1], pixel[2]);
+    if (!hitColorMap[id]) return null;
+    // Find annotation
+    const imgData = state.images[state.currentIdx];
+    const anns = state.annsByImage[imgData.id] || [];
+    return anns.find(a => a.id === id) || null;
+  }
+
+  // -- Detail panel --
+  function showDetail(ann) {
+    if (!ann) { hideDetail(); return; }
+    const cat = state.catMap[ann.category_id];
+    const panel = document.getElementById('detail-panel');
+    const title = document.getElementById('detail-title');
+    const grid = document.getElementById('detail-grid');
+
+    title.textContent = `${cat.name} (id: ${ann.id})`;
+    title.style.color = CAT_COLORS[ann.category_id] || '#7E57C2';
+
+    const items = [
+      ['Category', cat.name],
+      ['Annotation ID', ann.id],
+      ['Bbox', `[${ann.bbox.join(', ')}]`],
+      ['Area', ann.area.toFixed(1)],
+      ['Occluded', ann.occluded ? 'Yes' : 'No'],
+      ['Occlusion Rate', (ann.occlusion_rate * 100).toFixed(1) + '%'],
+    ];
+    if (ann.occluded_by && ann.occluded_by.length > 0) {
+      items.push(['Occluded By', ann.occluded_by.join(', ')]);
+    }
+    if (ann.keypoints && ann.num_keypoints) {
+      items.push(['Keypoints', ann.num_keypoints]);
+      // Format keypoint details
+      const kpNames = cat.keypoints || [];
+      const parts = [];
+      for (let i = 0; i < ann.keypoints.length; i += 3) {
+        const name = kpNames[i / 3] || `kp${i / 3}`;
+        const vis = ann.keypoints[i + 2] === 2 ? 'visible' : ann.keypoints[i + 2] === 1 ? 'occluded' : 'absent';
+        parts.push(`${name}: (${ann.keypoints[i].toFixed(0)}, ${ann.keypoints[i + 1].toFixed(0)}) ${vis}`);
+      }
+      items.push(['Keypoint Details', parts.join(' | ')]);
+    }
+
+    grid.innerHTML = items.map(([k, v]) =>
+      `<div><span class="detail-key">${k}: </span><span class="detail-val">${v}</span></div>`
+    ).join('');
+
+    panel.classList.add('visible');
+  }
+
+  function hideDetail() {
+    document.getElementById('detail-panel').classList.remove('visible');
+  }
+
+  // -- Build category filter UI --
+  function buildCategoryUI() {
+    const list = document.getElementById('cat-list');
+    list.innerHTML = '';
+    const cats = Object.values(state.catMap).sort((a, b) => a.id - b.id);
+    for (const cat of cats) {
+      state.enabledCats.add(cat.id);
+      const item = document.createElement('div');
+      item.className = 'cat-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = true;
+      cb.id = `cat-${cat.id}`;
+      cb.addEventListener('change', () => {
+        if (cb.checked) state.enabledCats.add(cat.id);
+        else state.enabledCats.delete(cat.id);
+        render();
+      });
+      const dot = document.createElement('span');
+      dot.className = 'cat-dot';
+      dot.style.background = CAT_COLORS[cat.id] || '#888';
+      const label = document.createElement('label');
+      label.htmlFor = `cat-${cat.id}`;
+      label.textContent = cat.name;
+      item.appendChild(cb);
+      item.appendChild(dot);
+      item.appendChild(label);
+      list.appendChild(item);
+    }
+  }
+
+  // -- Zoom/Pan helpers --
+  function updateZoomUI() {
+    const indicator = document.getElementById('zoom-indicator');
+    const level = document.getElementById('zoom-level');
+    if (state.zoom > 1.01) {
+      indicator.classList.add('visible');
+      level.textContent = Math.round(state.zoom * 100) + '%';
+      canvas.classList.add('zoomed');
+    } else {
+      indicator.classList.remove('visible');
+      canvas.classList.remove('zoomed');
+    }
+  }
+
+  function resetZoom() {
+    state.zoom = 1;
+    state.panX = 0;
+    state.panY = 0;
+    updateZoomUI();
+    render();
+  }
+
+  function clampPan(canW, canH) {
+    if (state.zoom <= 1) { state.panX = 0; state.panY = 0; return; }
+    const imgData = state.images[state.currentIdx];
+    if (!imgData) return;
+    const baseScale = Math.min(canW / imgData.width, canH / imgData.height);
+    const dw = imgData.width * baseScale * state.zoom;
+    const dh = imgData.height * baseScale * state.zoom;
+    const maxPanX = Math.max(0, (dw - canW) / 2);
+    const maxPanY = Math.max(0, (dh - canH) / 2);
+    state.panX = Math.max(-maxPanX, Math.min(maxPanX, state.panX));
+    state.panY = Math.max(-maxPanY, Math.min(maxPanY, state.panY));
+  }
+
+  // -- Setup --
+  async function init() {
+    // Load annotations
+    const resp = await fetch('annotations.json');
+    state.data = await resp.json();
+    state.images = state.data.images;
+
+    // Build lookup maps
+    for (const cat of state.data.categories) {
+      state.catMap[cat.id] = cat;
+    }
+    for (const ann of state.data.annotations) {
+      if (!state.annsByImage[ann.image_id]) state.annsByImage[ann.image_id] = [];
+      state.annsByImage[ann.image_id].push(ann);
+    }
+
+    // Stats -- count styles
+    const styleCounts = {};
+    for (const img of state.images) {
+      const s = img.config_style || 'unknown';
+      styleCounts[s] = (styleCounts[s] || 0) + 1;
+    }
+    const styleBreakdown = Object.entries(styleCounts)
+      .map(([s, c]) => `${s}: ${c}`)
+      .join(', ');
+
+    document.getElementById('stats').innerHTML =
+      `Images: ${state.images.length}<br>` +
+      `Annotations: ${state.data.annotations.length}<br>` +
+      `Categories: ${state.data.categories.length}<br>` +
+      `Styles: ${styleBreakdown}`;
+
+    // Build UI
+    buildCategoryUI();
+    loadingEl.style.display = 'none';
+
+    // Display toggles
+    document.getElementById('tog-masks').addEventListener('change', function() {
+      state.showMasks = this.checked; render();
+    });
+    document.getElementById('tog-bboxes').addEventListener('change', function() {
+      state.showBboxes = this.checked; render();
+    });
+    document.getElementById('tog-labels').addEventListener('change', function() {
+      state.showLabels = this.checked; render();
+    });
+    document.getElementById('tog-keypoints').addEventListener('change', function() {
+      state.showKeypoints = this.checked; render();
+    });
+
+    // Opacity slider
+    const slider = document.getElementById('opacity-slider');
+    const sliderVal = document.getElementById('opacity-val');
+    slider.addEventListener('input', function() {
+      state.maskOpacity = this.value / 100;
+      sliderVal.textContent = this.value + '%';
+      render();
+    });
+
+    // Category controls
+    document.getElementById('cat-all').addEventListener('click', () => {
+      for (const cat of Object.values(state.catMap)) {
+        state.enabledCats.add(cat.id);
+        document.getElementById(`cat-${cat.id}`).checked = true;
+      }
+      render();
+    });
+    document.getElementById('cat-none').addEventListener('click', () => {
+      state.enabledCats.clear();
+      for (const cat of Object.values(state.catMap)) {
+        document.getElementById(`cat-${cat.id}`).checked = false;
+      }
+      render();
+    });
+
+    // Line detection controls
+    document.getElementById('btn-detect-lines').addEventListener('click', runLineDetection);
+    document.getElementById('btn-clear-lines').addEventListener('click', function() {
+      state.lineDetection = null;
+      document.getElementById('ld-stats').textContent = '';
+      render();
+    });
+    document.getElementById('tog-edges').addEventListener('change', function() {
+      state.showEdges = this.checked; render();
+    });
+    document.getElementById('tog-lines').addEventListener('change', function() {
+      state.showDetectedLines = this.checked; render();
+    });
+    document.getElementById('tog-intersections').addEventListener('change', function() {
+      state.showIntersections = this.checked; render();
+    });
+
+    var cannyLowSlider = document.getElementById('canny-low');
+    var cannyLowVal = document.getElementById('canny-low-val');
+    cannyLowSlider.addEventListener('input', function() {
+      state.cannyLow = parseInt(this.value);
+      cannyLowVal.textContent = this.value;
+    });
+    var cannyHighSlider = document.getElementById('canny-high');
+    var cannyHighVal = document.getElementById('canny-high-val');
+    cannyHighSlider.addEventListener('input', function() {
+      state.cannyHigh = parseInt(this.value);
+      cannyHighVal.textContent = this.value;
+    });
+    var houghThreshSlider = document.getElementById('hough-thresh');
+    var houghThreshVal = document.getElementById('hough-thresh-val');
+    houghThreshSlider.addEventListener('input', function() {
+      state.houghThreshold = parseInt(this.value);
+      houghThreshVal.textContent = this.value;
+    });
+
+    // Navigation
+    document.getElementById('btn-prev').addEventListener('click', () => goToImage(state.currentIdx - 1));
+    document.getElementById('btn-next').addEventListener('click', () => goToImage(state.currentIdx + 1));
+
+    // Keyboard
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); goToImage(state.currentIdx - 1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); goToImage(state.currentIdx + 1); }
+      if (e.key === 'Escape') { state.selectedAnn = null; hideDetail(); render(); }
+      if (e.key === '0' || e.key === 'Home') { resetZoom(); }
+    });
+
+    // Mouse: hover (skip during pan)
+    canvas.addEventListener('mousemove', (e) => {
+      if (state.isPanning) return;
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const ann = hitTest(mx, my);
+      if (ann !== state.hoveredAnn) {
+        state.hoveredAnn = ann;
+        render();
+        if (ann && !state.selectedAnn) showDetail(ann);
+        else if (!ann && !state.selectedAnn) hideDetail();
+      }
+    });
+
+    // Track drag distance to distinguish click from pan
+    let dragDist = 0;
+    canvas.addEventListener('mousedown', () => { dragDist = 0; });
+    canvas.addEventListener('mousemove', (e) => {
+      if (e.buttons & 1) dragDist += Math.abs(e.movementX) + Math.abs(e.movementY);
+    });
+
+    // Mouse: click to select/deselect (suppressed if drag occurred)
+    canvas.addEventListener('click', (e) => {
+      if (dragDist > 4) return; // was a pan drag, not a click
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const ann = hitTest(mx, my);
+      if (ann) {
+        if (state.selectedAnn && state.selectedAnn.id === ann.id) {
+          state.selectedAnn = null;
+          hideDetail();
+        } else {
+          state.selectedAnn = ann;
+          showDetail(ann);
+        }
+      } else {
+        state.selectedAnn = null;
+        hideDetail();
+      }
+      render();
+    });
+
+    // Mouse leave canvas
+    canvas.addEventListener('mouseleave', () => {
+      state.hoveredAnn = null;
+      state.isPanning = false;
+      canvas.classList.remove('panning');
+      if (!state.selectedAnn) hideDetail();
+      render();
+    });
+
+    // Scroll-wheel zoom (centered on cursor)
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const canW = parseInt(canvas.style.width);
+      const canH = parseInt(canvas.style.height);
+
+      const oldZoom = state.zoom;
+      const zoomFactor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+      state.zoom = Math.max(1, Math.min(20, state.zoom * zoomFactor));
+
+      if (state.zoom > 1) {
+        // Adjust pan so the point under the cursor stays fixed
+        const zoomRatio = state.zoom / oldZoom;
+        const cx = canW / 2;
+        const cy = canH / 2;
+        state.panX = (mx - cx) - zoomRatio * (mx - cx - state.panX);
+        state.panY = (my - cy) - zoomRatio * (my - cy - state.panY);
+        clampPan(canW, canH);
+      } else {
+        state.panX = 0;
+        state.panY = 0;
+      }
+
+      updateZoomUI();
+      render();
+    }, { passive: false });
+
+    // Pan via mouse drag (when zoomed in)
+    canvas.addEventListener('mousedown', (e) => {
+      if (state.zoom <= 1) return;
+      // Left button drag to pan when zoomed
+      if (e.button === 0) {
+        state.isPanning = true;
+        state.panStartX = e.clientX;
+        state.panStartY = e.clientY;
+        state.panStartPanX = state.panX;
+        state.panStartPanY = state.panY;
+        canvas.classList.add('panning');
+        e.preventDefault();
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!state.isPanning) return;
+      const canW = parseInt(canvas.style.width);
+      const canH = parseInt(canvas.style.height);
+      state.panX = state.panStartPanX + (e.clientX - state.panStartX);
+      state.panY = state.panStartPanY + (e.clientY - state.panStartY);
+      clampPan(canW, canH);
+      render();
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (state.isPanning) {
+        state.isPanning = false;
+        canvas.classList.remove('panning');
+      }
+    });
+
+    // Reset zoom button
+    document.getElementById('btn-reset-zoom').addEventListener('click', resetZoom);
+
+    // Resize
+    window.addEventListener('resize', resizeCanvas);
+
+    // Initial render
+    resizeCanvas();
+    goToImage(0);
+  }
+
+  init().catch(err => {
+    loadingEl.textContent = 'Error loading annotations: ' + err.message;
+    console.error(err);
+  });
+})();
+</script>
+</body>
+</html>

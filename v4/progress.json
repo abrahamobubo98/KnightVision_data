@@ -1,0 +1,12 @@
+{
+  "completed": [
+    "ring1_az000_el30.png",
+    "ring1_az030_el30.png",
+    "ring1_az060_el30.png",
+    "ring1_az090_el30.png",
+    "ring1_az120_el30.png"
+  ],
+  "images_done": 5,
+  "images_total": 25,
+  "annotations_so_far": 95
+}
